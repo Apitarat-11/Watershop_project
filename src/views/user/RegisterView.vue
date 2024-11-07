@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import * as Yup from 'yup';
 
 const router = useRouter();
 
@@ -8,38 +9,46 @@ const username = ref('');
 const email = ref('');
 const password = ref('');
 const confirmPassword = ref('');
-const phone = ref('');
+
 const loading = ref(false);
 const error = ref('');
 const successMessage = ref('');
 
-const validateForm = () => {
-  if (!username.value || !email.value || !password.value || !confirmPassword.value ) {
-    error.value = 'กรุณากรอกข้อมูลให้ครบถ้วน';
+const validationSchema = Yup.object().shape({
+  username: Yup.string()
+    .matches(/^[a-zA-Z0-9_]{3,20}$/, 'ชื่อผู้ใช้ต้องมีความยาวระหว่าง 3-20 ตัวอักษรและไม่สามารถมีสัญลักษณ์พิเศษได้')
+    .required('ชื่อผู้ใช้เป็นข้อมูลที่จำเป็น'),
+  email: Yup.string()
+    .email('กรุณากรอกอีเมลที่ถูกต้อง')
+    .required('อีเมลเป็นข้อมูลที่จำเป็น'),
+  password: Yup.string()
+    .min(6, 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร')
+    .required('รหัสผ่านเป็นข้อมูลที่จำเป็น'),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref('password'), null], 'รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน')
+    .required('การยืนยันรหัสผ่านเป็นข้อมูลที่จำเป็น')
+});
+
+const validateForm = async () => {
+  try {
+
+    await validationSchema.validate({
+      username: username.value,
+      email: email.value,
+      password: password.value,
+      confirmPassword: confirmPassword.value
+    }, { abortEarly: false });
+
+    return true;
+  } catch (err) {
+
+    error.value = err.inner.map(e => e.message).join(', ');
     return false;
   }
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username.value)) {
-    error.value = 'ชื่อผู้ใช้ต้องมีความยาวระหว่าง 5-20 ตัวอักษรและไม่สามารถมีสัญลักษณ์พิเศษได้';
-    return false;
-  }
-  if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email.value)) {
-    error.value = 'กรุณากรอกอีเมลให้ถูกต้อง';
-    return false;
-  }
-  if (password.value.length < 4) {
-    error.value = 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร';
-    return false;
-  }
-  if (password.value !== confirmPassword.value) {
-    error.value = 'รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน';
-    return false;
-  }
-  error.value = '';
-  return true;
 };
 
 const handleRegister = async () => {
-  if (!validateForm()) return;
+  if (!await validateForm()) return;
 
   loading.value = true;
   try {
